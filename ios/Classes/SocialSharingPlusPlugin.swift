@@ -93,11 +93,40 @@ public class SocialSharingPlusPlugin: NSObject, FlutterPlugin {
     ///   - result: FlutterResult object to complete the call.
     ///   - isOpenBrowser: Flag indicating whether to open in browser if app not installed.
     private func shareToLinkedIn(arguments: [String: Any], result: @escaping FlutterResult, isOpenBrowser: Bool) {
-        if let content = arguments["content"] as? String {
-            let urlString = "linkedin://shareArticle?mini=true&url=\(content)"
-            let webUrlString = "https://www.linkedin.com/sharing/share-offsite/?url=\(content)"
-            openUrl(urlString: urlString, webUrlString: webUrlString, result: result, isOpenBrowser: isOpenBrowser)
+        guard let rawContent = arguments["content"] as? String, !rawContent.isEmpty else {
+            result(FlutterError(code: "CONTENT_ERROR", message: "Content is required for LinkedIn sharing", details: nil))
+            return
         }
+
+        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shareTarget = determineLinkedInShareTarget(from: content)
+
+        openUrl(
+            urlString: shareTarget.appUrl,
+            webUrlString: shareTarget.webUrl,
+            result: result,
+            isOpenBrowser: isOpenBrowser
+        )
+    }
+
+    /// Builds the native deep link and web fallback used when sharing to LinkedIn.
+    ///
+    /// - Parameter content: The text provided from Flutter.
+    /// - Returns: A tuple that contains the native scheme and web fallback URLs.
+    private func determineLinkedInShareTarget(from content: String) -> (appUrl: String, webUrl: String) {
+        let baseContent = content.isEmpty ? " " : content
+
+        let sanitizedContent = baseContent
+        let lowercasedContent = sanitizedContent.lowercased()
+        let isHttpLink = lowercasedContent.hasPrefix("http://") || lowercasedContent.hasPrefix("https://")
+        let urlComponent = isHttpLink ? sanitizedContent : "https://www.linkedin.com"
+
+        let querySuffix = "mini=true&url=\(urlComponent)&title=\(sanitizedContent)&summary=\(sanitizedContent)"
+
+        let appUrl = "linkedin://shareArticle?\(querySuffix)"
+        let webUrl = "https://www.linkedin.com/shareArticle?\(querySuffix)"
+
+        return (appUrl, webUrl)
     }
 
     /// Shares content to WhatsApp.

@@ -95,6 +95,30 @@ class SocialSharingPlusPlugin : FlutterPlugin, MethodCallHandler {
             result: Result,
             isOpenBrowser: Boolean
     ) {
+        if (packageName == SocialConstants.LINKEDIN_PACKAGE_NAME && mediaUri == null) {
+            val (appUrl, webUrl) = buildLinkedInShareUrls(content ?: "")
+
+            val linkedInIntent = Intent(Intent.ACTION_VIEW, Uri.parse(appUrl)).apply {
+                setPackage(packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            if (linkedInIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(linkedInIntent)
+                result.success(null)
+            } else if (isOpenBrowser) {
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(browserIntent)
+                result.success(null)
+            } else {
+                result.error("APP_NOT_INSTALLED", "$packageName is not installed", null)
+            }
+
+            return
+        }
+
         val intent: Intent =
                 Intent(Intent.ACTION_SEND).apply {
                     type =
@@ -162,6 +186,23 @@ class SocialSharingPlusPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
+    private fun buildLinkedInShareUrls(content: String): Pair<String, String> {
+        val trimmed = content.trim()
+        val fallbackContent = if (trimmed.isEmpty()) " " else trimmed
+        val lower = fallbackContent.lowercase()
+        val isHttpLink = lower.startsWith("http://") || lower.startsWith("https://")
+        val targetUrl = if (isHttpLink) fallbackContent else "https://www.linkedin.com"
+
+        val encodedText = Uri.encode(fallbackContent)
+        val encodedUrl = Uri.encode(targetUrl)
+
+        val query = "mini=true&url=$encodedUrl&title=$encodedText&summary=$encodedText"
+        val appUrl = "linkedin://shareArticle?$query"
+        val webUrl = "https://www.linkedin.com/shareArticle?$query"
+
+        return appUrl to webUrl
+    }
+
     private fun openInBrowser(packageName: String, content: String, mediaUri: Uri?) {
         val webIntent = Intent(Intent.ACTION_VIEW)
         val webUrlString: String? =
@@ -171,7 +212,7 @@ class SocialSharingPlusPlugin : FlutterPlugin, MethodCallHandler {
                     SocialConstants.TWITTER_PACKAGE_NAME ->
                             "${SocialConstants.TWITTER_WEB_URL}$content"
                     SocialConstants.LINKEDIN_PACKAGE_NAME ->
-                            "${SocialConstants.LINKEDIN_WEB_URL}$content"
+                            buildLinkedInShareUrls(content).second
                     SocialConstants.WHATSAPP_PACKAGE_NAME ->
                             "${SocialConstants.WHATSAPP_WEB_URL}$content"
                     SocialConstants.REDDIT_PACKAGE_NAME ->

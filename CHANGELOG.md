@@ -1,3 +1,7 @@
+# Unreleased
+
+- fix: ensure LinkedIn shares include shared text on iOS and Android
+
 # 1.2.3
 
 - fix: social platform public docs [(#9)](https://github.com/bedirhanssaglam/social_sharing_plus/pull/9)
